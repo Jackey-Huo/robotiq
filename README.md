@@ -1,5 +1,7 @@
 # Robotiq
 
+This repo is a fork of [origin robotiq ros driver](https://github.com/ros-industrial/robotiq) without all the gazebo package. It will always track latest commit from mainline branch, and may fix some bugs if there is any ;)
+
 ## ROS Distro Support
 
 |         | Indigo | Jade | Kinetic |
