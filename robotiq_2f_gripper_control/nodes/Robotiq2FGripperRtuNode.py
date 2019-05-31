@@ -49,17 +49,18 @@ import robotiq_modbus_rtu.comModbusRtu
 import os, sys
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_input  as inputMsg
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg
+from sensor_msgs.msg import JointState
 
-def mainLoop(device):
-
+def mainLoop():
     #Gripper is a 2F with a TCP connection
     gripper = robotiq_2f_gripper_control.baseRobotiq2FGripper.robotiqbaseRobotiq2FGripper()
     gripper.client = robotiq_modbus_rtu.comModbusRtu.communication()
 
+    rospy.init_node('robotiq2FGripper')
+    device = rospy.get_param('~port', '/dev/ttyUSB0')
+
     #We connect to the address received as an argument
     gripper.client.connectToDevice(device)
-
-    rospy.init_node('robotiq2FGripper')
 
     #The Gripper status is published on the topic named 'Robotiq2FGripperRobotInput'
     pub = rospy.Publisher('Robotiq2FGripperRobotInput', inputMsg.Robotiq2FGripper_robot_input, queue_size=5)
@@ -67,24 +68,44 @@ def mainLoop(device):
     #The Gripper command is received from the topic named 'Robotiq2FGripperRobotOutput'
     rospy.Subscriber('Robotiq2FGripperRobotOutput', outputMsg.Robotiq2FGripper_robot_output, gripper.refreshCommand)
 
+    # Publish joint state
+    joint_pub = rospy.Publisher('/joint_states', JointState, queue_size=2)
+    joint_states = JointState()
+    joint_names = ['robotiq_85_left_knuckle_joint', 'robotiq_85_right_knuckle_joint',
+                   'robotiq_85_left_inner_knuckle_joint', 'robotiq_85_right_inner_knuckle_joint',
+                   'robotiq_85_left_finger_tip_joint', 'robotiq_85_right_finger_tip_joint']
+    joint_pos_sign = [1., 1., 1., 1., -1., -1.]
+    joint_states.name = joint_names
 
     #We loop
+    joint_idx = 0
     while not rospy.is_shutdown():
+        #Get and publish the Gripper status
+        status = gripper.getStatus()
+        pub.publish(status)
 
-      #Get and publish the Gripper status
-      status = gripper.getStatus()
-      pub.publish(status)
+        # publish joint states
+        active = status.gSTA
+        pos = status.gPO if active else 0
+        pos = (pos / 255.) * 0.8
+        joint_pos = [pos * sign for sign in joint_pos_sign]
+        joint_states.header.stamp = rospy.get_rostime()
+        joint_states.header.seq = joint_idx
+        joint_states.position = joint_pos
+        joint_pub.publish(joint_states)
 
-      #Wait a little
-      #rospy.sleep(0.05)
+        #Wait a little
+        # rospy.sleep(0.05)
 
-      #Send the most recent command
-      gripper.sendCommand()
+        #Send the most recent command
+        gripper.sendCommand()
 
-      #Wait a little
-      #rospy.sleep(0.05)
+        #Wait a little
+        #rospy.sleep(0.05)
+
+
 
 if __name__ == '__main__':
     try:
-        mainLoop(sys.argv[1])
+        mainLoop()
     except rospy.ROSInterruptException: pass

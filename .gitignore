@@ -39,3 +39,6 @@ nosetests.xml
 
 CATKIN_IGNORE
 *.user
+
+# ycm complete file
+.ycm_extra_conf.py
